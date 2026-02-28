@@ -1,11 +1,16 @@
 const express = require("express");
 const cors = require("cors");
 const nodemailer = require("nodemailer");
+const rateLimit = require("express-rate-limit");
 const dotenv = require("dotenv");
 
 dotenv.config();
 
 const app = express();
+
+if (process.env.TRUST_PROXY === "true") {
+  app.set("trust proxy", 1);
+}
 
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") || "*" }));
 app.use(express.json({ limit: "200kb" }));
@@ -34,6 +39,14 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+const sendEmailLimiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  max: Number(process.env.RATE_LIMIT_MAX || 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many requests. Please try again later." },
+});
+
 function requireBearerToken(req, res, next) {
   const authHeader = req.headers.authorization || "";
   const [scheme, token] = authHeader.split(" ");
@@ -49,7 +62,7 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true, service: "smtp-email-api" });
 });
 
-app.post("/send-email", requireBearerToken, async (req, res) => {
+app.post("/send-email", sendEmailLimiter, requireBearerToken, async (req, res) => {
   const { to, subject, text, html, cc, bcc, replyTo } = req.body || {};
 
   if (!to || !subject || (!text && !html)) {

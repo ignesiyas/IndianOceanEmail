@@ -14,10 +14,22 @@ Send in header:
 
 - `Authorization: Bearer your-long-random-secret`
 
+## Rate limiting
+
+`POST /send-email` is rate-limited per IP.
+
+Env settings:
+
+- `RATE_LIMIT_WINDOW_MS=900000` (15 minutes)
+- `RATE_LIMIT_MAX=20` (max requests per window per IP)
+- `TRUST_PROXY=true` (recommended behind hosting proxy)
+
+When limit is exceeded, API returns `429 Too Many Requests`.
+
 ## Endpoints
 
 - `GET /health` (public)
-- `POST /send-email` (protected)
+- `POST /send-email` (protected + rate-limited)
 
 ### POST /send-email body
 
